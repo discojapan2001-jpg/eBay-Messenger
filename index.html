@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
+<title>eBay顧客対応</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --card: #121826;
+    --border: rgba(148,163,184,0.12);
+    --accent: #22d3ee;
+    --accent-text: #67e8f9;
+    --amber: #f59e0b;
+    --amber-text: #fbbf24;
+    --green: #34d399;
+    --green-text: #6ee7b7;
+    --red: #f87171;
+    --muted: #64748b;
+    --text: #e2e8f0;
+    --sub: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: linear-gradient(180deg,#0a0e1a 0%,#0d1220 100%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Segoe UI", sans-serif;
+    padding-bottom: 84px;
+  }
+  header { padding: 20px 16px 8px; }
+  header h1 {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 20px; margin: 0; color: var(--accent-text);
+    text-shadow: 0 0 14px rgba(34,211,238,0.35);
+  }
+  header p { font-size: 12px; color: var(--muted); margin: 4px 0 0 0; }
+  .statusRow { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 11px; }
+  .statusRow button { background:none; border:none; color:var(--muted); font-size:11px; cursor:pointer; display:flex; align-items:center; gap:3px; }
+  main { padding: 0 16px 16px; }
+  .section { background: var(--card); border: 1px solid rgba(34,211,238,0.15); border-radius: 14px; padding: 16px; }
+  .filters { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; overflow-x: auto; }
+  .chip { flex-shrink:0; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid rgba(148,163,184,0.2); background:transparent; color:var(--sub); cursor:pointer; }
+  .chip.active { border-color: var(--accent); background: rgba(34,211,238,0.12); color: var(--accent-text); }
+  .refreshBtn { margin-left:auto; background:none; border:1px solid rgba(148,163,184,0.2); border-radius:999px; padding:6px 8px; color:var(--sub); cursor:pointer; }
+  .card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; }
+  .card.trouble { border-left: 3px solid var(--red); }
+  .card.normal { border-left: 3px solid rgba(34,211,238,0.4); }
+  .cardTop { display:flex; justify-content:space-between; align-items:center; }
+  .buyerName { font-weight:700; font-size:14px; }
+  .repeatTag { color: var(--accent-text); font-weight:600; font-size:11px; margin-left:6px; }
+  .pill { display:flex; align-items:center; gap:6px; border:none; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+  .dot { width:6px; height:6px; border-radius:50%; }
+  .orig { font-size:13px; color: var(--sub); margin: 8px 0 4px; line-height:1.5; }
+  .translated { margin-top:6px; padding-top:8px; border-top:1px dashed rgba(148,163,184,0.15); display:flex; gap:6px; font-size:13px; line-height:1.5; }
+  .replyBox { margin-top:10px; padding-top:10px; border-top:1px dashed rgba(148,163,184,0.15); }
+  textarea, input { width:100%; background:#0d1320; border:1px solid rgba(148,163,184,0.15); border-radius:8px; color:var(--text); font-size:13px; padding:8px; box-sizing:border-box; }
+  textarea { resize: vertical; min-height: 44px; }
+  .smallBtn { margin-top:6px; display:flex; align-items:center; gap:5px; background: rgba(34,211,238,0.12); border:none; color: var(--accent-text); border-radius:8px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+  .replyResult { margin-top:8px; background:#0d1320; border:1px solid rgba(52,211,153,0.2); border-radius:8px; padding:10px; font-size:13px; }
+  .copyBtn { margin-top:8px; display:flex; align-items:center; gap:4px; background: rgba(148,163,184,0.1); border:none; color: var(--sub); border-radius:8px; padding:5px 9px; font-size:11px; font-weight:600; cursor:pointer; }
+  .empty { color: var(--muted); font-size:13px; text-align:center; margin:0; }
+  .offerCard { border-left: 3px solid var(--amber); }
+  .offerPrice { font-size:20px; font-weight:800; color: var(--amber-text); }
+  .offerBtns { display:flex; gap:8px; margin-top:10px; }
+  .acceptBtn, .declineBtn { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:8px 0; border-radius:8px; border:none; font-weight:700; font-size:13px; cursor:pointer; }
+  .acceptBtn { background: rgba(52,211,153,0.15); color: var(--green-text); }
+  .declineBtn { background: rgba(248,113,113,0.12); color: var(--red); }
+  .fab { position:fixed; right:20px; bottom:92px; width:52px; height:52px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 4px 18px rgba(34,211,238,0.45); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10; font-size:26px; color:#0a0e1a; }
+  .bottomNav { position:fixed; bottom:0; left:0; right:0; background:#0d1220; border-top:1px solid rgba(148,163,184,0.12); display:flex; padding:10px 0 calc(10px + env(safe-area-inset-bottom)); }
+  .navBtn { flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; color:var(--muted); font-size:10px; font-weight:600; }
+  .navBtn.active { color: var(--accent); }
+  .navIcon { font-size:18px; }
+  .modalOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:flex-end; z-index:20; }
+  .modal { width:100%; background:#101623; border-top:1px solid rgba(34,211,238,0.25); border-radius:18px 18px 0 0; padding:18px; box-sizing:border-box; }
+  .modalHead { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-weight:700; font-size:15px; }
+  .modalHead button { background:none; border:none; color:var(--sub); font-size:20px; cursor:pointer; }
+  .catRow { display:flex; gap:8px; margin-bottom:14px; }
+  .catBtn { flex:1; padding:8px 0; border-radius:8px; font-size:13px; font-weight:600; border:1px solid rgba(148,163,184,0.2); background:transparent; color:var(--sub); cursor:pointer; }
+  .catBtn.active { border-color:var(--accent); background:rgba(34,211,238,0.12); color:var(--accent-text); }
+  .primaryBtn { width:100%; padding:12px 0; border-radius:10px; border:none; font-weight:700; font-size:14px; color:#0a0e1a; background:var(--accent); cursor:pointer; }
+  .primaryBtn:disabled { background: rgba(34,211,238,0.3); cursor:not-allowed; }
+  .templateTitle { display:flex; justify-content:space-between; align-items:flex-start; }
+  .spin { display:inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  input[type=text]#f_text { margin-bottom:10px; }
+  .fieldGap { margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📨 eBay顧客対応</h1>
+  <p id="unresolvedCount">未対応 0 件</p>
+  <div class="statusRow">
+    <span id="syncStatus">自動受信 未設定</span>
+    <button id="settingsBtn">⚙ 設定</button>
+  </div>
+</header>
+
+<main>
+  <div id="inboxTab">
+    <div class="filters" id="filterRow">
+      <button class="chip active" data-f="all">全て</button>
+      <button class="chip" data-f="未対応">未対応</button>
+      <button class="chip" data-f="対応中">対応中</button>
+      <button class="chip" data-f="trouble">トラブル</button>
+      <button class="chip" data-f="完了">完了</button>
+      <button class="refreshBtn" id="refreshBtn">⟳</button>
+    </div>
+    <div id="messageList"></div>
+  </div>
+
+  <div id="offersTab" style="display:none;">
+    <div id="offerList"></div>
+  </div>
+
+  <div id="buyersTab" style="display:none;">
+    <div id="buyerList"></div>
+  </div>
+
+  <div id="templatesTab" style="display:none;">
+    <div id="templateList"></div>
+  </div>
+</main>
+
+<button class="fab" id="fab">＋</button>
+
+<div class="bottomNav">
+  <button class="navBtn active" data-tab="inboxTab">📨<span>受信</span></button>
+  <button class="navBtn" data-tab="offersTab">🏷️<span>オファー</span></button>
+  <button class="navBtn" data-tab="buyersTab">👥<span>リピーター</span></button>
+  <button class="navBtn" data-tab="templatesTab">📝<span>テンプレート</span></button>
+</div>
+
+<!-- 追加モーダル -->
+<div class="modalOverlay" id="addOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modalHead"><span>メッセージを追加</span><button id="closeAdd">✕</button></div>
+    <input class="fieldGap" id="f_buyerName" placeholder="購入者名" />
+    <input class="fieldGap" id="f_buyerId" placeholder="購入者ID(任意)" />
+    <textarea class="fieldGap" id="f_text" placeholder="受信メッセージ本文(英語)"></textarea>
+    <div class="catRow">
+      <button class="catBtn active" data-cat="通常">通常</button>
+      <button class="catBtn" data-cat="トラブル">⚠ トラブル</button>
+    </div>
+    <button class="primaryBtn" id="submitAdd">追加して翻訳</button>
+  </div>
+</div>
+
+<!-- 設定モーダル -->
+<div class="modalOverlay" id="settingsOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modalHead"><span>自動受信の設定</span><button id="closeSettings">✕</button></div>
+    <p style="font-size:12px;color:var(--sub);margin:0 0 10px;">GAS Web AppのURLとトークンを入力してください。</p>
+    <input class="fieldGap" id="s_url" placeholder="GAS Web App URL (.../exec)" />
+    <input class="fieldGap" id="s_token" placeholder="トークン(SHARED_SECRET)" />
+    <button class="primaryBtn" id="saveSettings">保存</button>
+  </div>
+</div>
+
+<script>
+const STATUS_STYLE = {
+  "未対応": { dot: "#f59e0b", bg: "rgba(245,158,11,0.12)", text: "#fbbf24" },
+  "対応中": { dot: "#22d3ee", bg: "rgba(34,211,238,0.12)", text: "#67e8f9" },
+  "完了":   { dot: "#34d399", bg: "rgba(52,211,153,0.10)", text: "#6ee7b7" },
+};
+const STATUSES = ["未対応", "対応中", "完了"];
+
+let state = { messages: [], offers: [], buyerNotes: {}, templates: [] };
+let filter = "all";
+let config = JSON.parse(localStorage.getItem("ebay-app-config") || "{}");
+let category = "通常";
+let syncTimer = null;
+
+function esc(s){ return (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function apiGet(action, params) {
+  const q = new URLSearchParams({ action, token: config.token, ...params });
+  const res = await fetch(`${config.url}?${q.toString()}`);
+  return res.json();
+}
+async function apiPost(body) {
+  const res = await fetch(config.url, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ token: config.token, ...body }),
+  });
+  return res.json();
+}
+
+async function loadState() {
+  if (!config.url || !config.token) { renderSyncStatus(false); return; }
+  renderSyncStatus("syncing");
+  try {
+    const data = await apiGet("state", {});
+    if (data.error) { renderSyncStatus("error"); return; }
+    state.messages = (data.messages || []).sort((a,b) => b.createdAt - a.createdAt);
+    state.offers = data.offers || [];
+    const notes = {};
+    (data.buyerNotes || []).forEach(b => notes[b.buyerId] = b.notes);
+    state.buyerNotes = notes;
+    state.templates = data.templates || [];
+    renderSyncStatus(true);
+    renderAll();
+  } catch (e) {
+    renderSyncStatus("error");
+  }
+}
+
+function renderSyncStatus(v) {
+  const el = document.getElementById("syncStatus");
+  if (!config.url) { el.textContent = "自動受信 未設定"; el.style.color = "var(--muted)"; return; }
+  if (v === "syncing") { el.innerHTML = '<span class="spin">⟳</span> 同期中...'; el.style.color = "var(--accent-text)"; return; }
+  if (v === "error") { el.textContent = "⚠ 同期エラー"; el.style.color = "var(--red)"; return; }
+  el.textContent = "📶 自動受信 有効";
+  el.style.color = "var(--green-text)";
+}
+
+function renderAll() {
+  renderMessages();
+  renderOffers();
+  renderBuyers();
+  renderTemplates();
+  const unresolved = state.messages.filter(m => m.status !== "完了").length;
+  document.getElementById("unresolvedCount").textContent = `未対応 ${unresolved} 件`;
+}
+
+function buyerStats() {
+  const stats = {};
+  state.messages.forEach(m => {
+    if (!stats[m.buyerId]) stats[m.buyerId] = { buyerId: m.buyerId, name: m.buyerName, count: 0, last: 0 };
+    stats[m.buyerId].count++;
+    stats[m.buyerId].last = Math.max(stats[m.buyerId].last, m.createdAt);
+  });
+  return stats;
+}
+
+function renderMessages() {
+  const stats = buyerStats();
+  let list = state.messages;
+  if (filter === "trouble") list = list.filter(m => m.category === "トラブル");
+  else if (filter !== "all") list = list.filter(m => m.status === filter);
+
+  const el = document.getElementById("messageList");
+  if (list.length === 0) {
+    el.innerHTML = `<div class="section"><p class="empty">メッセージがありません。右下の＋から追加してください。</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(m => {
+    const s = STATUS_STYLE[m.status] || STATUS_STYLE["未対応"];
+    const repeat = stats[m.buyerId] && stats[m.buyerId].count > 1
+      ? `<span class="repeatTag">リピーター ×${stats[m.buyerId].count}</span>` : "";
+    return `
+      <div class="card ${m.category === 'トラブル' ? 'trouble' : 'normal'}" data-id="${esc(m.id)}">
+        <div class="cardTop">
+          <div class="buyerName">${esc(m.buyerName)}${repeat}</div>
+          <button class="pill statusPill" style="background:${s.bg};color:${s.text}" data-id="${esc(m.id)}" data-status="${esc(m.status)}">
+            <span class="dot" style="background:${s.dot}"></span>${esc(m.status)}
+          </button>
+        </div>
+        <p class="orig">${esc(m.text)}</p>
+        ${m.translatedJa ? `<div class="translated">🌐 ${esc(m.translatedJa)}</div>` : ""}
+        <div class="replyBox">
+          <textarea class="replyDraft" data-id="${esc(m.id)}" placeholder="返信を日本語で入力...">${esc(m.replyDraft || "")}</textarea>
+          <button class="smallBtn translateReplyBtn" data-id="${esc(m.id)}">🌐 英語に翻訳</button>
+          ${m.replyEn ? `<div class="replyResult">${esc(m.replyEn)}<br><button class="copyBtn copyReplyBtn" data-text="${esc(m.replyEn)}">📋 コピー</button></div>` : `<div class="replyResultSlot"></div>`}
+        </div>
+      </div>`;
+  }).join("");
+
+  el.querySelectorAll(".statusPill").forEach(btn => btn.addEventListener("click", onCycleStatus));
+  el.querySelectorAll(".translateReplyBtn").forEach(btn => btn.addEventListener("click", onTranslateReply));
+  el.querySelectorAll(".copyReplyBtn").forEach(btn => btn.addEventListener("click", onCopy));
+  el.querySelectorAll(".replyDraft").forEach(ta => ta.addEventListener("change", onReplyDraftChange));
+}
+
+function renderOffers() {
+  const el = document.getElementById("offerList");
+  if (state.offers.length === 0) {
+    el.innerHTML = `<div class="section"><p class="empty">現在、有効なオファーはありません。</p></div>`;
+    return;
+  }
+  el.innerHTML = state.offers.map(o => `
+    <div class="card offerCard" data-offer="${esc(o.offerId)}" data-item="${esc(o.itemId)}">
+      <div class="buyerName">${esc(o.buyerId)}</div>
+      <p class="orig">${esc(o.title || o.itemId)}</p>
+      <div class="offerPrice">${esc(o.currency)} ${esc(o.price)}</div>
+      <div class="offerBtns">
+        <button class="acceptBtn" data-decision="accept">👍 承諾</button>
+        <button class="declineBtn" data-decision="decline">👎 却下</button>
+      </div>
+    </div>`).join("");
+  el.querySelectorAll("[data-decision]").forEach(btn => btn.addEventListener("click", onRespondOffer));
+}
+
+function renderBuyers() {
+  const stats = Object.values(buyerStats()).sort((a,b) => b.count - a.count);
+  const el = document.getElementById("buyerList");
+  if (stats.length === 0) {
+    el.innerHTML = `<div class="section"><p class="empty">まだ購入者データがありません。</p></div>`;
+    return;
+  }
+  el.innerHTML = stats.map(b => `
+    <div class="section" style="margin-bottom:10px;">
+      <div class="cardTop">
+        <div>
+          <div class="buyerName">${esc(b.name)}</div>
+          <div style="font-size:11px;color:var(--muted);">やり取り ${b.count} 件・最終 ${new Date(b.last).toLocaleDateString("ja-JP")}</div>
+        </div>
+        ${b.count > 1 ? `<span style="font-size:11px;font-weight:700;color:var(--accent-text);background:rgba(34,211,238,0.12);padding:3px 8px;border-radius:999px;">リピーター</span>` : ""}
+      </div>
+      <textarea class="buyerNote" data-id="${esc(b.buyerId)}" placeholder="メモ(好み・注意点など)" style="margin-top:10px;min-height:36px;">${esc(state.buyerNotes[b.buyerId] || "")}</textarea>
+    </div>`).join("");
+  el.querySelectorAll(".buyerNote").forEach(ta => ta.addEventListener("change", onBuyerNoteChange));
+}
+
+function renderTemplates() {
+  const el = document.getElementById("templateList");
+  el.innerHTML = state.templates.map(t => `
+    <div class="section" style="margin-bottom:10px;">
+      <div class="templateTitle">
+        <div class="buyerName">${esc(t.title)}</div>
+        <button class="copyBtn copyTemplateBtn" data-text="${esc(t.en)}">📋 コピー</button>
+      </div>
+      <p style="font-size:12px;color:var(--sub);margin:8px 0 0;line-height:1.5;">${esc(t.en)}</p>
+    </div>`).join("");
+  el.querySelectorAll(".copyTemplateBtn").forEach(btn => btn.addEventListener("click", onCopy));
+}
+
+// ---- イベントハンドラ ----
+async function onCycleStatus(e) {
+  const btn = e.currentTarget;
+  const id = btn.dataset.id;
+  const cur = btn.dataset.status;
+  const next = STATUSES[(STATUSES.indexOf(cur) + 1) % STATUSES.length];
+  const msg = state.messages.find(m => m.id === id);
+  if (msg) msg.status = next;
+  renderMessages();
+  await apiPost({ action: "update_status", id, status: next });
+}
+
+function onReplyDraftChange(e) {
+  const id = e.target.dataset.id;
+  const msg = state.messages.find(m => m.id === id);
+  if (msg) msg.replyDraft = e.target.value;
+}
+
+async function onTranslateReply(e) {
+  const id = e.currentTarget.dataset.id;
+  const msg = state.messages.find(m => m.id === id);
+  if (!msg || !msg.replyDraft || !msg.replyDraft.trim()) return;
+  e.currentTarget.innerHTML = '<span class="spin">⟳</span> 英訳中...';
+  try {
+    const res = await apiPost({ action: "translate_reply", text: msg.replyDraft.trim() });
+    if (res.en) {
+      msg.replyEn = res.en;
+      await apiPost({ action: "save_reply", id, replyDraft: msg.replyDraft, replyEn: res.en });
+    }
+  } finally {
+    renderMessages();
+  }
+}
+
+function onCopy(e) {
+  const text = e.currentTarget.dataset.text;
+  navigator.clipboard?.writeText(text);
+  const orig = e.currentTarget.textContent;
+  e.currentTarget.textContent = "✓ コピー済";
+  setTimeout(() => { e.currentTarget.textContent = orig; }, 1500);
+}
+
+async function onBuyerNoteChange(e) {
+  const buyerId = e.target.dataset.id;
+  const notes = e.target.value;
+  state.buyerNotes[buyerId] = notes;
+  await apiPost({ action: "save_buyer_note", buyerId, notes });
+}
+
+async function onRespondOffer(e) {
+  const card = e.currentTarget.closest(".card");
+  const offerId = card.dataset.offer;
+  const itemId = card.dataset.item;
+  const decision = e.currentTarget.dataset.decision;
+  const res = await apiPost({ action: "respond_offer", itemId, offerId, decision });
+  if (res.ok) {
+    state.offers = state.offers.filter(o => o.offerId !== offerId);
+    renderOffers();
+  }
+}
+
+// ---- タブ/フィルタ/モーダル ----
+document.querySelectorAll(".navBtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".navBtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    ["inboxTab","offersTab","buyersTab","templatesTab"].forEach(id => {
+      document.getElementById(id).style.display = id === btn.dataset.tab ? "" : "none";
+    });
+    document.getElementById("fab").style.display = btn.dataset.tab === "inboxTab" ? "" : "none";
+  });
+});
+
+document.querySelectorAll(".chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    filter = chip.dataset.f;
+    renderMessages();
+  });
+});
+
+document.getElementById("refreshBtn").addEventListener("click", loadState);
+
+document.getElementById("fab").addEventListener("click", () => {
+  document.getElementById("addOverlay").style.display = "flex";
+});
+document.getElementById("closeAdd").addEventListener("click", () => {
+  document.getElementById("addOverlay").style.display = "none";
+});
+document.querySelectorAll(".catBtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".catBtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    category = btn.dataset.cat;
+  });
+});
+document.getElementById("submitAdd").addEventListener("click", async () => {
+  const buyerName = document.getElementById("f_buyerName").value.trim();
+  const buyerId = document.getElementById("f_buyerId").value.trim() || buyerName;
+  const text = document.getElementById("f_text").value.trim();
+  if (!buyerName || !text) return;
+  document.getElementById("addOverlay").style.display = "none";
+  const tempId = "temp-" + Date.now();
+  state.messages.unshift({ id: tempId, buyerId, buyerName, text, translatedJa: "", createdAt: Date.now(), category, status: "未対応", replyDraft: "", replyEn: "" });
+  renderMessages();
+  document.getElementById("f_buyerName").value = "";
+  document.getElementById("f_buyerId").value = "";
+  document.getElementById("f_text").value = "";
+  const res = await apiPost({ action: "add_message", buyerName, buyerId, text, category });
+  const msg = state.messages.find(m => m.id === tempId);
+  if (msg && res.id) {
+    msg.id = res.id;
+    msg.translatedJa = res.translatedJa || "";
+  }
+  renderMessages();
+});
+
+document.getElementById("settingsBtn").addEventListener("click", () => {
+  document.getElementById("s_url").value = config.url || "";
+  document.getElementById("s_token").value = config.token || "";
+  document.getElementById("settingsOverlay").style.display = "flex";
+});
+document.getElementById("closeSettings").addEventListener("click", () => {
+  document.getElementById("settingsOverlay").style.display = "none";
+});
+document.getElementById("saveSettings").addEventListener("click", () => {
+  config = { url: document.getElementById("s_url").value.trim(), token: document.getElementById("s_token").value.trim() };
+  localStorage.setItem("ebay-app-config", JSON.stringify(config));
+  document.getElementById("settingsOverlay").style.display = "none";
+  restartSync();
+});
+
+function restartSync() {
+  if (syncTimer) clearInterval(syncTimer);
+  loadState();
+  syncTimer = setInterval(loadState, 60000);
+}
+
+restartSync();
+</script>
+</body>
+</html>
