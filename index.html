@@ -124,6 +124,8 @@
   </div>
 </main>
 
+<button class="fab" id="fabTemplate" style="display:none;">＋</button>
+
 <button class="fab" id="fab">＋</button>
 
 <div class="bottomNav">
@@ -156,6 +158,16 @@
     <input class="fieldGap" id="s_url" placeholder="GAS Web App URL (.../exec)" />
     <input class="fieldGap" id="s_token" placeholder="トークン(SHARED_SECRET)" />
     <button class="primaryBtn" id="saveSettings">保存</button>
+  </div>
+</div>
+
+<!-- テンプレート追加モーダル -->
+<div class="modalOverlay" id="templateOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modalHead"><span>テンプレートを追加</span><button id="closeTemplate">✕</button></div>
+    <input class="fieldGap" id="t_title" placeholder="タイトル(日本語)" />
+    <textarea class="fieldGap" id="t_en" placeholder="返信本文(英語)" style="min-height:80px;"></textarea>
+    <button class="primaryBtn" id="submitTemplate">追加</button>
   </div>
 </div>
 
@@ -398,6 +410,7 @@ document.querySelectorAll(".navBtn").forEach(btn => {
       document.getElementById(id).style.display = id === btn.dataset.tab ? "" : "none";
     });
     document.getElementById("fab").style.display = btn.dataset.tab === "inboxTab" ? "" : "none";
+    document.getElementById("fabTemplate").style.display = btn.dataset.tab === "templatesTab" ? "" : "none";
   });
 });
 
@@ -466,6 +479,24 @@ function restartSync() {
   loadState();
   syncTimer = setInterval(loadState, 60000);
 }
+
+document.getElementById("fabTemplate").addEventListener("click", () => {
+  document.getElementById("templateOverlay").style.display = "flex";
+});
+document.getElementById("closeTemplate").addEventListener("click", () => {
+  document.getElementById("templateOverlay").style.display = "none";
+});
+document.getElementById("submitTemplate").addEventListener("click", async () => {
+  const title = document.getElementById("t_title").value.trim();
+  const en = document.getElementById("t_en").value.trim();
+  if (!title || !en) return;
+  document.getElementById("templateOverlay").style.display = "none";
+  document.getElementById("t_title").value = "";
+  document.getElementById("t_en").value = "";
+  const res = await apiPost({ action: "add_template", title, en });
+  state.templates.push({ id: res.id, title, en });
+  renderTemplates();
+});
 
 restartSync();
 </script>
