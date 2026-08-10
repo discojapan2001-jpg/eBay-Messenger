@@ -161,6 +161,14 @@
   </div>
 </div>
 
+<!-- テンプレート選択モーダル -->
+<div class="modalOverlay" id="templatePickerOverlay" style="display:none;">
+  <div class="modal">
+    <div class="modalHead"><span>テンプレートを選択</span><button id="closeTemplatePicker">✕</button></div>
+    <div id="templatePickerList"></div>
+  </div>
+</div>
+
 <!-- テンプレート追加モーダル -->
 <div class="modalOverlay" id="templateOverlay" style="display:none;">
   <div class="modal">
@@ -275,15 +283,23 @@ function renderMessages() {
         ${m.translatedJa ? `<div class="translated">🌐 ${esc(m.translatedJa)}</div>` : ""}
         <div class="replyBox">
           <textarea class="replyDraft" data-id="${esc(m.id)}" placeholder="返信を日本語で入力...">${esc(m.replyDraft || "")}</textarea>
-          <button class="smallBtn translateReplyBtn" data-id="${esc(m.id)}">🌐 英語に翻訳</button>
-          ${m.replyEn ? `<div class="replyResult">${esc(m.replyEn)}<br><button class="copyBtn copyReplyBtn" data-text="${esc(m.replyEn)}">📋 コピー</button></div>` : `<div class="replyResultSlot"></div>`}
+          <div style="display:flex;gap:6px;">
+            <button class="smallBtn translateReplyBtn" data-id="${esc(m.id)}">🌐 英語に翻訳</button>
+            <button class="smallBtn useTemplateBtn" data-id="${esc(m.id)}" style="background:rgba(148,163,184,0.1);color:var(--sub);">📋 テンプレート</button>
+          </div>
+          ${m.replyEn ? `<div class="replyResult">${esc(m.replyEn)}<br>
+            <button class="copyBtn copyReplyBtn" data-text="${esc(m.replyEn)}">📋 コピー</button>
+            <button class="copyBtn sendReplyBtn" data-id="${esc(m.id)}" style="color:var(--green-text);">📤 eBayに送信</button>
+          </div>` : `<div class="replyResultSlot"></div>`}
         </div>
       </div>`;
   }).join("");
 
   el.querySelectorAll(".statusPill").forEach(btn => btn.addEventListener("click", onCycleStatus));
   el.querySelectorAll(".translateReplyBtn").forEach(btn => btn.addEventListener("click", onTranslateReply));
+  el.querySelectorAll(".useTemplateBtn").forEach(btn => btn.addEventListener("click", onOpenTemplatePicker));
   el.querySelectorAll(".copyReplyBtn").forEach(btn => btn.addEventListener("click", onCopy));
+  el.querySelectorAll(".sendReplyBtn").forEach(btn => btn.addEventListener("click", onSendReply));
   el.querySelectorAll(".replyDraft").forEach(ta => ta.addEventListener("change", onReplyDraftChange));
 }
 
@@ -333,11 +349,15 @@ function renderTemplates() {
     <div class="section" style="margin-bottom:10px;">
       <div class="templateTitle">
         <div class="buyerName">${esc(t.title)}</div>
-        <button class="copyBtn copyTemplateBtn" data-text="${esc(t.en)}">📋 コピー</button>
+        <div style="display:flex;gap:6px;">
+          <button class="copyBtn copyTemplateBtn" data-text="${esc(t.en)}">📋 コピー</button>
+          <button class="copyBtn deleteTemplateBtn" data-id="${esc(t.id)}" style="color:var(--red);">🗑 削除</button>
+        </div>
       </div>
       <p style="font-size:12px;color:var(--sub);margin:8px 0 0;line-height:1.5;">${esc(t.en)}</p>
     </div>`).join("");
   el.querySelectorAll(".copyTemplateBtn").forEach(btn => btn.addEventListener("click", onCopy));
+  el.querySelectorAll(".deleteTemplateBtn").forEach(btn => btn.addEventListener("click", onDeleteTemplate));
 }
 
 // ---- イベントハンドラ ----
@@ -374,6 +394,70 @@ async function onTranslateReply(e) {
   }
 }
 
+async function onSendReply(e) {
+  const id = e.currentTarget.dataset.id;
+  if (!confirm("この内容でeBayに送信しますか?")) return;
+  const btn = e.currentTarget;
+  const orig = btn.textContent;
+  btn.textContent = "送信中...";
+  btn.disabled = true;
+  try {
+    const res = await apiPost({ action: "send_reply", id });
+    if (res.ok) {
+      const msg = state.messages.find(m => m.id === id);
+      if (msg) msg.status = "完了";
+      renderMessages();
+    } else {
+      alert("送信に失敗しました: " + (res.error || "不明なエラー"));
+      btn.textContent = orig;
+      btn.disabled = false;
+    }
+  } catch (err) {
+    alert("送信に失敗しました。通信エラーの可能性があります。");
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+}
+
+let pickerMsgId = null;
+function onOpenTemplatePicker(e) {
+  pickerMsgId = e.currentTarget.dataset.id;
+  const el = document.getElementById("templatePickerList");
+  if (state.templates.length === 0) {
+    el.innerHTML = `<p class="empty">テンプレートがありません。「テンプレート」タブから追加してください。</p>`;
+  } else {
+    el.innerHTML = state.templates.map(t => `
+      <div class="section" style="margin-bottom:10px;cursor:pointer;" data-tid="${esc(t.id)}">
+        <div class="buyerName">${esc(t.title)}</div>
+        <p style="font-size:12px;color:var(--sub);margin:8px 0 0;line-height:1.5;">${esc(t.en)}</p>
+      </div>`).join("");
+    el.querySelectorAll("[data-tid]").forEach(card => card.addEventListener("click", onPickTemplate));
+  }
+  document.getElementById("templatePickerOverlay").style.display = "flex";
+}
+
+async function onPickTemplate(e) {
+  const tid = e.currentTarget.dataset.tid;
+  const template = state.templates.find(t => t.id === tid);
+  const msg = state.messages.find(m => m.id === pickerMsgId);
+  if (!template || !msg) return;
+  document.getElementById("templatePickerOverlay").style.display = "none";
+  if (!confirm(`このテンプレートをそのまま送信しますか?\n\n${template.en}`)) return;
+  try {
+    const res = await apiPost({ action: "send_reply", id: msg.id, text: template.en });
+    if (res.ok) {
+      msg.replyEn = template.en;
+      msg.status = "完了";
+      await apiPost({ action: "save_reply", id: msg.id, replyDraft: msg.replyDraft || "", replyEn: template.en });
+      renderMessages();
+    } else {
+      alert("送信に失敗しました: " + (res.error || "不明なエラー"));
+    }
+  } catch (err) {
+    alert("送信に失敗しました。通信エラーの可能性があります。");
+  }
+}
+
 function onCopy(e) {
   const text = e.currentTarget.dataset.text;
   navigator.clipboard?.writeText(text);
@@ -387,6 +471,14 @@ async function onBuyerNoteChange(e) {
   const notes = e.target.value;
   state.buyerNotes[buyerId] = notes;
   await apiPost({ action: "save_buyer_note", buyerId, notes });
+}
+
+async function onDeleteTemplate(e) {
+  const id = e.currentTarget.dataset.id;
+  if (!confirm("このテンプレートを削除しますか?")) return;
+  state.templates = state.templates.filter(t => t.id !== id);
+  renderTemplates();
+  await apiPost({ action: "delete_template", id });
 }
 
 async function onRespondOffer(e) {
@@ -479,6 +571,10 @@ function restartSync() {
   loadState();
   syncTimer = setInterval(loadState, 60000);
 }
+
+document.getElementById("closeTemplatePicker").addEventListener("click", () => {
+  document.getElementById("templatePickerOverlay").style.display = "none";
+});
 
 document.getElementById("fabTemplate").addEventListener("click", () => {
   document.getElementById("templateOverlay").style.display = "flex";
