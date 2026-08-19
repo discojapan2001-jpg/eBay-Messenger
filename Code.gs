@@ -197,17 +197,19 @@ function fetchAndStoreMessages() {
   }
 
   var sheet = getSheet_();
-  var exchanges = root.getChildren("MemberMessageExchange", ns);
+  var memberMessage = root.getChild("MemberMessage", ns);
+  var exchanges = memberMessage ? memberMessage.getChildren("MemberMessageExchange", ns) : [];
 
   exchanges.forEach(function (ex) {
-    var m = ex.getChild("MemberMessage", ns);
-    if (!m) return;
-    var id = m.getChildText("ExternalMessageID", ns) || m.getChildText("MessageID", ns) || Utilities.getUuid();
-    var sender = m.getChildText("Sender", ns) || "unknown";
-    var text = m.getChildText("Text", ns) || "";
-    var created = m.getChildText("CreationDate", ns) || nowStr;
+    var q = ex.getChild("Question", ns);
+    if (!q) return;
+    var id = q.getChildText("MessageID", ns) || Utilities.getUuid();
+    var sender = q.getChildText("SenderID", ns) || "unknown";
+    var text = q.getChildText("Body", ns) || "";
+    var created = ex.getChildText("CreationDate", ns) || nowStr;
     var createdMs = new Date(created).getTime();
-    var itemId = m.getChildText("ItemID", ns) || "";
+    var itemEl = ex.getChild("Item", ns);
+    var itemId = itemEl ? itemEl.getChildText("ItemID", ns) || "" : "";
 
     var ja = "";
     try {
